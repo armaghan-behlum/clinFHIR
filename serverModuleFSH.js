@@ -11,7 +11,6 @@ function setup(app) {
     req.on("end", function () {
       void (async function () {
         let results;
-        console.log(body);
         let result = await gofshClient.fhirToFsh([body], {
           style: "map",
           dependencies: ["hl7.fhir.r4.core#4.0.1"],
