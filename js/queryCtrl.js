@@ -72,9 +72,19 @@ angular
 
         $scope.waiting = true;
 
+        let accessToken = $scope.input.accessToken;
+        let config = { headers: {}};
+        if (accessToken) {
+          config.headers.Authorization = "Bearer " + accessToken;
+        }
+
         let qry = $scope.server.url + "metadata";
+        if ($scope.input.useProxy) {
+          console.log("Using proxy");
+          qry = "/proxyfhir/" + qry;
+        }
         $http
-          .get(qry)
+          .get(qry, config)
           .then(
             function (data) {
               $localStorage.serverQueryServer = server;
@@ -121,8 +131,8 @@ angular
             function (err) {
               alert(
                 "Error loading conformance resource from:" +
-                  qry +
-                  " Is the server available, and does it support CORS?",
+                qry +
+                " Is the server available, and does it support CORS? \n" + err,
               );
             },
           )
@@ -393,7 +403,7 @@ angular
         $scope.selectedServerOperation = item;
       };
 
-      $scope.executeServerOperation = function () {};
+      $scope.executeServerOperation = function () { };
 
       //------------------
 

@@ -4,6 +4,8 @@ var express = require("express");
 var app = express();
 app.use(cors());
 const fshModule = require("./serverModuleFSH.js");
+const proxyModule = require("./serverModuleProxy.js")
+
 
 process.on("uncaughtException", function (err) {
   console.log("Caught exception: " + err);
@@ -14,5 +16,7 @@ let server = http.createServer(app).listen(port);
 console.log(`listening on port ${port}`);
 
 fshModule.setup(app);
+proxyModule.setup(app);
+
 
 app.use("/", express.static(__dirname, { index: "/query.html" }));
