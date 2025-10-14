@@ -135,6 +135,7 @@ angular
     defaultConfig.baseSpecUrl = "http://hl7.org/fhir/"; //the base for spec documentation
     defaultConfig.logLevel = 0; //0 = no logging, 1 = log to console
     defaultConfig.enableCache = false; //whether caching is supported
+    defaultConfig.redoxConfigPath = "artifacts/redox-endpoints.json";
 
     //these are the default servers....
     defaultConfig.servers.terminology = "https://r4.ontoserver.csiro.au/fhir/"; //
@@ -327,6 +328,13 @@ angular
       version: 4,
       url: "https://r4.smarthealthit.org/",
       everythingOperation: true,
+    });
+
+    defaultConfig.allKnownServers.push({
+      name: "Redox Sandbox (REST)",
+      url: "https://api.redoxengine.com/",
+      isRedox: true,
+      redoxConfigId: "redox-sandbox",
     });
 
     //place all the servers in a hash indexed by url. THis is used for the userConfig

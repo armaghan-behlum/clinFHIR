@@ -37,6 +37,80 @@ angular
       $scope.input.showQuery = true; //if true, the query builder can be shown
       $scope.input.showResults = false; //show the resoult of a query
 
+      function resetRedoxState() {
+        $scope.redoxMode = false;
+        $scope.redoxCatalog = null;
+        $scope.redoxRequest = null;
+        $scope.redoxRequestHeaders = {};
+        $scope.redoxRequestBody = "";
+        $scope.redoxResponse = null;
+        $scope.redoxBodyManualOverride = false;
+      }
+
+      function combineUrl(base, path) {
+        if (!base) {
+          return path || "";
+        }
+        if (!path) {
+          return base;
+        }
+        if (base.slice(-1) === "/" && path.charAt(0) === "/") {
+          return base + path.substring(1);
+        }
+        if (base.slice(-1) !== "/" && path.charAt(0) !== "/") {
+          return base + "/" + path;
+        }
+        return base + path;
+      }
+
+      function assignRedoxValue(target, path, value) {
+        if (!path) {
+          return;
+        }
+        const segments = path.split(".");
+        let current = target;
+        segments.forEach(function (segment, index) {
+          const match = segment.match(/(.+)\[(\d+)\]$/);
+          if (match) {
+            const key = match[1];
+            const arrayIndex = parseInt(match[2], 10);
+            current[key] = current[key] || [];
+            while (current[key].length <= arrayIndex) {
+              current[key].push({});
+            }
+            if (index === segments.length - 1) {
+              current[key][arrayIndex] = value;
+            } else {
+              if (
+                typeof current[key][arrayIndex] !== "object" ||
+                current[key][arrayIndex] === null
+              ) {
+                current[key][arrayIndex] = {};
+              }
+              current = current[key][arrayIndex];
+            }
+          } else {
+            if (index === segments.length - 1) {
+              current[segment] = value;
+            } else {
+              current[segment] = current[segment] || {};
+              current = current[segment];
+            }
+          }
+        });
+      }
+
+      resetRedoxState();
+
+      $scope.markRedoxBodyEdited = function () {
+        $scope.redoxBodyManualOverride = true;
+      };
+
+      $scope.resetRedoxRequestTemplate = function () {
+        $scope.redoxBodyManualOverride = false;
+        $scope.buildQuery({ forceRedoxRebuild: true });
+      };
+
       //note that functions to check the $location # for a server & setuo initial one are below $scope.selectServer & $scope.buildQuery
 
       //select a server. If 'server' is populated then we've selected a known server. If url is populated then an ad-hoc url has been entered
@@ -48,7 +122,6 @@ angular
             url += "/";
           }
           server = { name: "Ad Hoc server", url: url };
-          //$scope.server = server;
         }
         $scope.server = server;
         $scope.input.parameters = "";
@@ -59,21 +132,100 @@ angular
         delete $scope.conformance;
         delete $scope.input.selectedType;
         delete $scope.standardResourceTypes;
-
         delete $scope.searchParamList;
         delete $scope.includeList;
 
         $scope.input.showQuery = true;
         $scope.input.showResults = false;
 
-        //  $scope.server = server;
+        resetRedoxState();
 
-        //$scope.input.validationServer = server;     //default the validation server to the selected server
+        if (!$scope.server) {
+          return;
+        }
 
         $scope.waiting = true;
 
+        if ($scope.server.isRedox) {
+          const configPath =
+            ($scope.config && $scope.config.redoxConfigPath) ||
+            "artifacts/redox-endpoints.json";
+          const configId = $scope.server.redoxConfigId || "default";
+          $http
+            .get(configPath)
+            .then(
+              function (response) {
+                const catalog = response.data || {};
+                const serverConfig =
+                  catalog[configId] || catalog.default || {};
+
+                if (
+                  !serverConfig.resources ||
+                  !Array.isArray(serverConfig.resources) ||
+                  serverConfig.resources.length === 0
+                ) {
+                  alert(
+                    "No Redox resources defined for configuration id '" +
+                      configId +
+                      "'.",
+                  );
+                  return;
+                }
+
+                $scope.redoxMode = true;
+                $scope.redoxCatalog = serverConfig;
+                $localStorage.serverQueryServer = server;
+
+                $scope.conformance = {
+                  description: serverConfig.description,
+                  rest: [
+                    {
+                      mode: "server",
+                      documentation: serverConfig.documentation,
+                      resource: serverConfig.resources.map(function (res) {
+                        return {
+                          type: res.type,
+                          documentation: res.documentation,
+                          searchParam: res.searchParam || [],
+                        };
+                      }),
+                    },
+                  ],
+                };
+
+                $scope.hashResource = {};
+                $scope.standardResourceTypes = serverConfig.resources.map(
+                  function (res) {
+                    const clone = angular.copy(res);
+                    clone.type = res.type;
+                    clone.searchParam = clone.searchParam || [];
+                    $scope.hashResource[res.type] = clone;
+                    return { name: res.type, display: res.display || res.type };
+                  },
+                );
+
+                if ($scope.standardResourceTypes.length > 0) {
+                  $scope.typeSelected($scope.standardResourceTypes[0]);
+                }
+              },
+              function (err) {
+                alert(
+                  "Error loading Redox configuration from:" +
+                    configPath +
+                    "\n" +
+                    err,
+                );
+              },
+            )
+            .finally(function () {
+              $scope.waiting = false;
+            });
+
+          return;
+        }
+
         let accessToken = $scope.input.accessToken;
-        let config = { headers: {}};
+        let config = { headers: {} };
         if (accessToken) {
           config.headers.Authorization = "Bearer " + accessToken;
         }
@@ -131,8 +283,9 @@ angular
             function (err) {
               alert(
                 "Error loading conformance resource from:" +
-                qry +
-                " Is the server available, and does it support CORS? \n" + err,
+                  qry +
+                  " Is the server available, and does it support CORS? \n" +
+                  err,
               );
             },
           )
@@ -186,13 +339,61 @@ angular
       };
 
       //builds the query from the user entered data
-      $scope.buildQuery = function () {
+      $scope.buildQuery = function (options) {
+        options = options || {};
         delete $scope.anonQuery;
         delete $scope.query;
         delete $scope.response;
         var qry = ""; //$scope.server.url;
 
         if (!$scope.input.selectedType) {
+          return;
+        }
+
+        if ($scope.redoxMode) {
+          const resourceConfig =
+            $scope.hashResource &&
+            $scope.hashResource[$scope.input.selectedType.name];
+          if (!resourceConfig) {
+            return;
+          }
+
+          const requestDef = resourceConfig.request || {};
+          const url = combineUrl($scope.server.url, requestDef.path);
+          $scope.redoxRequest = {
+            method: (requestDef.method || "POST").toUpperCase(),
+            url: url,
+            headers: angular.copy(requestDef.headers || {}),
+          };
+          $scope.redoxRequestHeaders = $scope.redoxRequest.headers;
+
+          if (!$scope.redoxBodyManualOverride || options.forceRedoxRebuild) {
+            const bodyTemplate = angular.copy(requestDef.bodyTemplate || {});
+            if (
+              $scope.input.selectedSearchParam &&
+              $scope.input.selectedSearchParamValue
+            ) {
+              (resourceConfig.searchParam || []).forEach(function (param) {
+                if (
+                  $scope.input.selectedSearchParam[param.name] &&
+                  $scope.input.selectedSearchParamValue[param.name] !==
+                    undefined &&
+                  param.redox &&
+                  param.redox.path
+                ) {
+                  assignRedoxValue(
+                    bodyTemplate,
+                    param.redox.path,
+                    $scope.input.selectedSearchParamValue[param.name],
+                  );
+                }
+              });
+            }
+            $scope.redoxRequestBody = angular.toJson(bodyTemplate, 2);
+          }
+
+          $scope.query = $scope.redoxRequest.method + " " + url;
+          $scope.anonQuery = $scope.query;
           return;
         }
 
@@ -330,6 +531,10 @@ angular
         delete $scope.searchParamList;
         delete $scope.includeList;
 
+        if ($scope.redoxMode) {
+          $scope.redoxBodyManualOverride = false;
+        }
+
         if ($scope.hashResource[type.name]) {
           $scope.searchParamList = $scope.hashResource[type.name].searchParam;
 
@@ -350,6 +555,12 @@ angular
       };
 
       $scope.executeFromHistory = function (hx) {
+        if ($scope.redoxMode) {
+          alert(
+            "History replay is not available for Redox servers. Please re-run the query from the builder.",
+          );
+          return;
+        }
         //use the current server for the query - may not be the same as in the history...
         let qry = $scope.server.url + hx.query;
         $scope.query = qry;
@@ -358,6 +569,10 @@ angular
 
       //when a resource type is selected in the list
       $scope.showType = function (type) {
+        if ($scope.redoxMode) {
+          $scope.selectedType = type;
+          return;
+        }
         clear();
         delete $scope.selectedProfile;
         $scope.selectedType = type;
@@ -389,6 +604,12 @@ angular
       };
 
       $scope.executeAdHoc = function (qry) {
+        if ($scope.redoxMode) {
+          alert(
+            "Ad-hoc queries are not supported for Redox servers. Use the Query Builder instead.",
+          );
+          return;
+        }
         let ar = qry.split("?");
         let type = { name: ar[0] };
         executeQuery($scope.server.url + qry, type);
@@ -409,11 +630,34 @@ angular
 
       $scope.doit = function () {
         $scope.buildQuery();
+
+        if ($scope.redoxMode) {
+          let payload = {};
+          if ($scope.redoxRequestBody && $scope.redoxRequestBody.trim().length) {
+            try {
+              payload = JSON.parse($scope.redoxRequestBody);
+            } catch (ex) {
+              alert(
+                "The Redox request body is not valid JSON. Please correct the body before executing.\n" +
+                  ex,
+              );
+              return;
+            }
+          }
+
+          const requestUrl =
+            ($scope.redoxRequest && $scope.redoxRequest.url) || $scope.query;
+          const typeName =
+            ($scope.input.selectedType && $scope.input.selectedType.name) || "";
+          executeQuery(requestUrl, typeName, false, payload);
+          return;
+        }
+
         let type = $scope.input.selectedType.name;
         executeQuery($scope.query, type);
       };
 
-      let executeQuery = function (qry, type, executeFromHistory) {
+      let executeQuery = function (qry, type, executeFromHistory, redoxPayload) {
         // $scope.buildQuery();        //always make sure the query is correct;
         delete $scope.response;
         //delete $scope.sortedResponse;
@@ -424,7 +668,75 @@ angular
         delete $scope.xmlResource;
         delete $scope.selectedResource;
         delete $scope.selectedResourceVersions;
+        delete $scope.redoxResponse;
         $("#queryResourceTree").jstree("destroy");
+
+        delete $scope.isBundle;
+
+        if ($scope.redoxMode) {
+          const requestConfig = angular.copy($scope.redoxRequest || {});
+          const targetUrl = requestConfig.url || qry;
+          const method = (requestConfig.method || "POST").toUpperCase();
+          const headers = angular.copy(requestConfig.headers || {});
+
+          if (!headers.Accept) {
+            headers.Accept = "application/json";
+          }
+          if (method !== "GET" && !headers["Content-Type"]) {
+            headers["Content-Type"] = "application/json";
+          }
+
+          let accessToken = $scope.input.accessToken;
+          if (accessToken) {
+            headers.Authorization = "Bearer " + accessToken;
+          }
+
+          if ($scope.server.apiKey) {
+            headers["x-api-key"] = $scope.server.apiKey;
+          }
+
+          const httpConfig = {
+            method: method,
+            url: targetUrl,
+            headers: headers,
+          };
+
+          if (method !== "GET") {
+            let payload = redoxPayload;
+            if (payload === undefined) {
+              payload = {};
+            }
+            httpConfig.data = payload;
+          }
+
+          $scope.query = method + " " + targetUrl;
+          $scope.waiting = true;
+
+          if ($scope.input.useProxy) {
+            httpConfig.url = "/proxyfhir/" + targetUrl;
+          }
+
+          $http(httpConfig)
+            .then(
+              function (data) {
+                $scope.redoxResponse = data.data;
+                $scope.response = { data: data.data };
+                $scope.input.showQuery = false; //hide the query builder tab contents
+                $scope.input.showResults = true; //show the results
+              },
+              function (err) {
+                $scope.err = err;
+                $scope.response = { data: {} };
+                $scope.input.showQuery = false; //hide the query builder tab contents
+                $scope.input.showResults = true; //show the results
+              },
+            )
+            .finally(function () {
+              $scope.waiting = false;
+            });
+
+          return;
+        }
 
         let config = { headers: { Accept: "application/fhir+json" } };
         let accessToken = $scope.input.accessToken;
@@ -443,8 +755,6 @@ angular
         if ($scope.input.useProxy) {
           qry = "/proxyfhir/" + qry;
         }
-
-        delete $scope.isBundle;
 
         $http
           .get(qry, config)
@@ -472,14 +782,14 @@ angular
                 );
 
                 //todo need a better solution for ad hoc queries
-                let type = "";
+                let typeName = "";
                 if ($scope.type) {
-                  type = $scope.type.name;
+                  typeName = $scope.type.name;
                 }
 
                 if (ar.length == 0) {
                   let hx = {
-                    type: type,
+                    type: typeName,
                     server: $scope.server.url,
                     query: anonQuery,
                   };
@@ -487,10 +797,10 @@ angular
                   $localStorage.queryHistory.splice(0, 0, hx);
 
                   if (
-                    $scope.commonTypes.filter((item) => item == type).length ==
+                    $scope.commonTypes.filter((item) => item == typeName).length ==
                     0
                   ) {
-                    $scope.commonTypes.push(type);
+                    $scope.commonTypes.push(typeName);
                     $scope.commonTypes.sort();
                   }
                 }

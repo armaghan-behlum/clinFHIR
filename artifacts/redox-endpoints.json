@@ -1,0 +1,280 @@
+{
+  "redox-sandbox": {
+    "description": "Sample configuration for querying Redox sandbox endpoints that do not expose native FHIR CapabilityStatements.",
+    "documentation": "Each entry describes a Redox data model and the payload required to invoke the Query event.",
+    "resources": [
+      {
+        "type": "PatientAdminQuery",
+        "display": "Patient Admin Query",
+        "documentation": "Search for patients in the Redox sandbox by demographic or identifier values.",
+        "searchParam": [
+          {
+            "name": "Patient.Identifiers[0].ID",
+            "display": "MRN",
+            "type": "string",
+            "documentation": "Medical record number or other identifier value.",
+            "redox": {
+              "path": "Patient.Identifiers[0].ID"
+            }
+          },
+          {
+            "name": "Patient.Demographics.FirstName",
+            "display": "First name",
+            "type": "string",
+            "documentation": "Patient first name used to narrow the query.",
+            "redox": {
+              "path": "Patient.Demographics.FirstName"
+            }
+          },
+          {
+            "name": "Patient.Demographics.LastName",
+            "display": "Last name",
+            "type": "string",
+            "documentation": "Patient last name used to narrow the query.",
+            "redox": {
+              "path": "Patient.Demographics.LastName"
+            }
+          },
+          {
+            "name": "Patient.Demographics.DOB",
+            "display": "Date of birth",
+            "type": "date",
+            "documentation": "Patient date of birth in YYYY-MM-DD format.",
+            "redox": {
+              "path": "Patient.Demographics.DOB"
+            }
+          }
+        ],
+        "request": {
+          "path": "query",
+          "method": "POST",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "bodyTemplate": {
+            "Meta": {
+              "DataModel": "PatientAdmin",
+              "EventType": "Query",
+              "EventDateTime": ""
+            },
+            "Patient": {
+              "Identifiers": [
+                {
+                  "IDType": "MRN",
+                  "ID": ""
+                }
+              ],
+              "Demographics": {
+                "FirstName": "",
+                "LastName": "",
+                "DOB": ""
+              }
+            },
+            "FacilityCode": ""
+          }
+        }
+      },
+      {
+        "type": "ClinicalSummaryQuery",
+        "display": "Clinical Summary Query",
+        "documentation": "Retrieve a clinical summary bundle by visit or patient identifiers.",
+        "searchParam": [
+          {
+            "name": "Patient.Identifiers[0].ID",
+            "display": "Patient identifier",
+            "type": "string",
+            "documentation": "Identifier used to scope the clinical summary request.",
+            "redox": {
+              "path": "Patient.Identifiers[0].ID"
+            }
+          },
+          {
+            "name": "Visit.VisitNumber",
+            "display": "Visit number",
+            "type": "string",
+            "documentation": "Redox visit number to retrieve a specific encounter.",
+            "redox": {
+              "path": "Visit.VisitNumber"
+            }
+          },
+          {
+            "name": "Visit.Location.Unit",
+            "display": "Location unit",
+            "type": "string",
+            "documentation": "Optional unit or clinic location filter.",
+            "redox": {
+              "path": "Visit.Location.Unit"
+            }
+          }
+        ],
+        "request": {
+          "path": "query",
+          "method": "POST",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "bodyTemplate": {
+            "Meta": {
+              "DataModel": "Clinical Summary",
+              "EventType": "Query",
+              "EventDateTime": ""
+            },
+            "Patient": {
+              "Identifiers": [
+                {
+                  "IDType": "MRN",
+                  "ID": ""
+                }
+              ]
+            },
+            "Visit": {
+              "VisitNumber": "",
+              "Location": {
+                "Unit": ""
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "default": {
+    "description": "Default Redox configuration",
+    "documentation": "Fallback definition when a specific Redox configuration id is not supplied.",
+    "resources": [
+      {
+        "type": "PatientAdminQuery",
+        "display": "Patient Admin Query",
+        "documentation": "Search for patients in the Redox sandbox by demographic or identifier values.",
+        "searchParam": [
+          {
+            "name": "Patient.Identifiers[0].ID",
+            "display": "MRN",
+            "type": "string",
+            "documentation": "Medical record number or other identifier value.",
+            "redox": {
+              "path": "Patient.Identifiers[0].ID"
+            }
+          },
+          {
+            "name": "Patient.Demographics.FirstName",
+            "display": "First name",
+            "type": "string",
+            "documentation": "Patient first name used to narrow the query.",
+            "redox": {
+              "path": "Patient.Demographics.FirstName"
+            }
+          },
+          {
+            "name": "Patient.Demographics.LastName",
+            "display": "Last name",
+            "type": "string",
+            "documentation": "Patient last name used to narrow the query.",
+            "redox": {
+              "path": "Patient.Demographics.LastName"
+            }
+          },
+          {
+            "name": "Patient.Demographics.DOB",
+            "display": "Date of birth",
+            "type": "date",
+            "documentation": "Patient date of birth in YYYY-MM-DD format.",
+            "redox": {
+              "path": "Patient.Demographics.DOB"
+            }
+          }
+        ],
+        "request": {
+          "path": "query",
+          "method": "POST",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "bodyTemplate": {
+            "Meta": {
+              "DataModel": "PatientAdmin",
+              "EventType": "Query",
+              "EventDateTime": ""
+            },
+            "Patient": {
+              "Identifiers": [
+                {
+                  "IDType": "MRN",
+                  "ID": ""
+                }
+              ],
+              "Demographics": {
+                "FirstName": "",
+                "LastName": "",
+                "DOB": ""
+              }
+            },
+            "FacilityCode": ""
+          }
+        }
+      },
+      {
+        "type": "ClinicalSummaryQuery",
+        "display": "Clinical Summary Query",
+        "documentation": "Retrieve a clinical summary bundle by visit or patient identifiers.",
+        "searchParam": [
+          {
+            "name": "Patient.Identifiers[0].ID",
+            "display": "Patient identifier",
+            "type": "string",
+            "documentation": "Identifier used to scope the clinical summary request.",
+            "redox": {
+              "path": "Patient.Identifiers[0].ID"
+            }
+          },
+          {
+            "name": "Visit.VisitNumber",
+            "display": "Visit number",
+            "type": "string",
+            "documentation": "Redox visit number to retrieve a specific encounter.",
+            "redox": {
+              "path": "Visit.VisitNumber"
+            }
+          },
+          {
+            "name": "Visit.Location.Unit",
+            "display": "Location unit",
+            "type": "string",
+            "documentation": "Optional unit or clinic location filter.",
+            "redox": {
+              "path": "Visit.Location.Unit"
+            }
+          }
+        ],
+        "request": {
+          "path": "query",
+          "method": "POST",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "bodyTemplate": {
+            "Meta": {
+              "DataModel": "Clinical Summary",
+              "EventType": "Query",
+              "EventDateTime": ""
+            },
+            "Patient": {
+              "Identifiers": [
+                {
+                  "IDType": "MRN",
+                  "ID": ""
+                }
+              ]
+            },
+            "Visit": {
+              "VisitNumber": "",
+              "Location": {
+                "Unit": ""
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

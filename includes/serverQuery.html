@@ -115,13 +115,22 @@
                       <textarea
                         class="form-control"
                         ng-model="adHocQry"
-                        placeholder="Enter the query to be executed against {{server.url}}. eg Patient?name=hay"
+                        placeholder="{{redoxMode ? 'Ad-hoc queries are disabled for Redox servers' : 'Enter the query to be executed against ' + server.url + '. eg Patient?name=hay'}}"
+                        ng-disabled="redoxMode"
                       ></textarea>
+                      <div
+                        class="help-block"
+                        ng-show="redoxMode"
+                      >
+                        Ad-hoc URL searches are only supported for FHIR servers.
+                        Use the Query Builder to construct Redox requests.
+                      </div>
                     </div>
                     <div class="col-sm-2 col-md-2">
                       <button
                         rows="4"
                         class="btn btn-danger"
+                        ng-disabled="redoxMode"
                         ng-click="executeAdHoc(adHocQry)"
                       >
                         Execute
@@ -190,7 +199,49 @@
                             </button>
                           </div>
                           <div class="col-md-11 col-sm-11">
-                            <h5>{{query}}</h5>
+                            <div ng-if="!redoxMode">
+                              <h5>{{query}}</h5>
+                            </div>
+                            <div ng-if="redoxMode">
+                              <h5>{{query}}</h5>
+                              <div class="alert alert-info" style="margin-top: 8px">
+                                The request body below is sent to the Redox endpoint.
+                                Update the JSON if you need to adjust the payload
+                                before executing the request.
+                              </div>
+                              <label class="control-label">Request body</label>
+                              <textarea
+                                class="form-control"
+                                rows="10"
+                                ng-model="redoxRequestBody"
+                                ng-change="markRedoxBodyEdited()"
+                              ></textarea>
+                              <div class="clearfix" style="margin-top: 4px">
+                                <button
+                                  type="button"
+                                  class="btn btn-link pull-right"
+                                  ng-click="resetRedoxRequestTemplate()"
+                                >
+                                  Reset template
+                                </button>
+                              </div>
+                              <div
+                                class="table-responsive"
+                                ng-if="redoxRequestHeaders && (redoxRequestHeaders | json) !== '{}'"
+                              >
+                                <label>Request headers</label>
+                                <table class="table table-condensed table-bordered">
+                                  <tr>
+                                    <th>Header</th>
+                                    <th>Value</th>
+                                  </tr>
+                                  <tr ng-repeat="(headerKey, headerValue) in redoxRequestHeaders">
+                                    <td>{{headerKey}}</td>
+                                    <td>{{headerValue}}</td>
+                                  </tr>
+                                </table>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -222,7 +273,7 @@
                               style="cursor: pointer"
                               ng-click="typeSelected({name:type})"
                             >
-                              <span class="pull-right">
+                              <span class="pull-right" ng-show="!redoxMode">
                                 <a
                                   ng-show="type"
                                   target="_blank"
@@ -248,7 +299,7 @@
                               style="cursor: pointer"
                               ng-click="typeSelected(type)"
                             >
-                              <span class="pull-right">
+                              <span class="pull-right" ng-show="!redoxMode">
                                 <a
                                   ng-show="type"
                                   target="_blank"
@@ -262,7 +313,7 @@
                                 </a>
                               </span>
 
-                              {{type.name}}
+                              {{type.display || type.name}}
                             </div>
                           </div>
                         </div>
@@ -283,7 +334,7 @@
                                 popover-placement="right"
                                 popover-trigger="'mouseenter'"
                               >
-                                {{param.name}}</span
+                                {{param.display || param.name}}</span
                               >
                             </div>
                             <div class="col-md-7">
@@ -301,7 +352,7 @@
 
                       <div
                         class="col-md-5 col-sm-5"
-                        ng-show="input.selectedType"
+                        ng-show="input.selectedType && !redoxMode"
                       >
                         <br />
                         <strong>Includes</strong>
@@ -471,7 +522,11 @@
 
             <hr />
 
-            <div class="row" ng-show="input.showResults && response">
+            <div
+              class="row"
+              ng-show="input.showResults && response"
+              ng-if="!redoxMode"
+            >
               <div class="col-md-12 col-sm-12">
                 <div class="rounded-box-filled">
                   <div class="row">
@@ -709,6 +764,66 @@
                 </div>
 
                 <hr />
+              </div>
+            </div>
+
+            <div class="row" ng-show="input.showResults && redoxMode">
+              <div class="col-md-12 col-sm-12">
+                <div class="rounded-box-filled">
+                  <div class="row">
+                    <div class="col-md-11">
+                      <strong style="margin: 8px"> {{query}}</strong>
+                      <div ng-show="input.useProxy">
+                        <em>Request proxied through clinFHIR server</em>
+                      </div>
+                    </div>
+
+                    <div class="col-md-1">
+                      <div class="pull-right">
+                        <button
+                          style="padding: 8px"
+                          class="btn btn-primary"
+                          ng-click="input.showQuery=true;input.showResults=false"
+                        >
+                          Close results
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="alert alert-danger" ng-show="err">
+                  <div>
+                    <strong>StatusCode:{{err.status || err.statusCode}}</strong>
+                  </div>
+                  <pre>{{(err.data || err) | json}}</pre>
+                </div>
+
+                <div class="row">
+                  <div class="col-md-6 col-sm-6">
+                    <h5>Request headers</h5>
+                    <table
+                      class="table table-bordered table-condensed"
+                      ng-if="redoxRequestHeaders && (redoxRequestHeaders | json) !== '{}'"
+                    >
+                      <tr>
+                        <th>Header</th>
+                        <th>Value</th>
+                      </tr>
+                      <tr ng-repeat="(headerKey, headerValue) in redoxRequestHeaders">
+                        <td>{{headerKey}}</td>
+                        <td>{{headerValue}}</td>
+                      </tr>
+                    </table>
+
+                    <h5>Request body</h5>
+                    <pre>{{redoxRequestBody}}</pre>
+                  </div>
+                  <div class="col-md-6 col-sm-6">
+                    <h5>Response</h5>
+                    <pre>{{redoxResponse | json}}</pre>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

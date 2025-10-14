@@ -12,6 +12,40 @@ This project is a fork of [clinFHIR](https://github.com/armaghan-behlum/clinFHIR
 
 As described above, this app is really targetted to 2 distinct sets of users.
 
+### Working with Redox endpoints
+
+Redox query support is available through a lightweight adapter that provides
+synthetic capability metadata. Select **Redox Sandbox (REST)** from the server
+drop-down to load the bundled configuration from
+`artifacts/redox-endpoints.json`. The query builder shows the available Redox
+data models and generates the JSON payload required for each request. You can
+edit the generated payload before executing the call and inspect the raw JSON
+response in the results panel. To add additional Redox endpoints, copy the
+structure used in `artifacts/redox-endpoints.json` and include the new server in
+`config.allKnownServers` (see `js/appConfigSvc.js`).
+
+Redox calls require a valid access token and optional custom headers. Enter the
+token in the **Access token** field before executing the query. When running the
+app locally you can proxy requests through the built-in `/proxyfhir` endpoint to
+avoid CORS restrictions.
+
+### Run with Docker
+
+Use the provided `Makefile` to build an image and start the application in a
+container:
+
+```bash
+make redox-up
+```
+
+The command builds an image named `clinfhir-redox` and launches a container with
+port `8000` exposed locally. Open <http://localhost:8000> to access the query
+viewer. Stop the container when you are finished:
+
+```bash
+make redox-down
+```
+
 ## Developers
 
 There is a need in the FHIR community for a component that can generate sample fhir resources from profiles (StructureDefinition resources). These are useful for educational purposes, to help a profile designer understand what the conformant instances will look like, and to generate examples that are really helpful for other developers.
